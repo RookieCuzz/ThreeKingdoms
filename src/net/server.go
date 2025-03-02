@@ -32,6 +32,12 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	//构建链接通道
+	wsServer := NewWsServer(wsConnection)
+	wsServer.Router(server.router)
+	//开启循环
+	wsServer.Start()
 	// 确保在函数结束时关闭连接
 	defer func() {
 		err := wsConnection.Close()
@@ -39,22 +45,25 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("关闭 WebSocket 连接时出错:", err)
 		}
 	}()
+	for {
+		
+	}
 	//defer wsConnection.Close()
 	//err = wsConnection.WriteMessage(websocket.TextMessage, []byte("你好 golang！"))
 	//if err != nil {
 	//	return
 	//}
-	for {
-		messageType, p, err := wsConnection.ReadMessage()
-		if err != nil {
-			fmt.Println(err)
-		}
-		if messageType == websocket.TextMessage {
-
-			fmt.Println("接受到的消息为:" + string(p))
-			wsConnection.WriteMessage(websocket.TextMessage, []byte("echo "+string(p)))
-		}
-	}
+	//for {
+	//	messageType, p, err := wsConnection.ReadMessage()
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//	if messageType == websocket.TextMessage {
+	//
+	//		fmt.Println("接受到的消息为:" + string(p))
+	//		wsConnection.WriteMessage(websocket.TextMessage, []byte("echo "+string(p)))
+	//	}
+	//}
 
 }
 
