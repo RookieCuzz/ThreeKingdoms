@@ -8,7 +8,7 @@ import (
 
 type ServerStruct struct {
 	addr   string
-	router *routerStruct
+	Router *RouterStruct
 }
 
 func (server *ServerStruct) Start() {
@@ -35,7 +35,7 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 	//构建链接通道
 	wsServer := NewWsServer(wsConnection)
-	wsServer.Router(server.router)
+	wsServer.Router(server.Router)
 	//开启循环
 	wsServer.Start()
 	// 确保在函数结束时关闭连接
@@ -46,7 +46,7 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	for {
-		
+
 	}
 	//defer wsConnection.Close()
 	//err = wsConnection.WriteMessage(websocket.TextMessage, []byte("你好 golang！"))
@@ -70,7 +70,7 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 func NewServer(addr string) *ServerStruct {
 	return &ServerStruct{
 		addr:   addr,
-		router: nil,
+		Router: nil,
 	}
 }
 

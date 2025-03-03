@@ -1,7 +1,9 @@
 package net
 
 import (
-	"fmt"
+	"ThreeKingdoms/src/utils"
+	"encoding/json"
+	"github.com/forgoer/openssl"
 	"github.com/gorilla/websocket"
 	"log"
 	"sync"
@@ -16,7 +18,7 @@ import (
 type wsServerStruct struct {
 	wsConnection *websocket.Conn
 	//消息的路由
-	router *routerStruct
+	router *RouterStruct
 
 	//FIFO写队列 用通道是因为方便不同协程写入读取数据
 	outChannelBuffer chan *WsMsgResponseStruct
@@ -76,7 +78,7 @@ func (wsServerBean wsServerStruct) Push(name string, data interface{}) {
 	wsServerBean.outChannelBuffer <- rsp
 }
 
-func (wsServerStruct *wsServerStruct) Router(router *routerStruct) {
+func (wsServerStruct *wsServerStruct) Router(router *RouterStruct) {
 	wsServerStruct.router = router
 }
 
@@ -119,23 +121,74 @@ func readMsgLoop(wsServerBean *wsServerStruct) {
 		log.Println(wsServerBean.Addr() + " 连接已经关闭")
 	}()
 	for {
-		messageType, p, err := wsServerBean.wsConnection.ReadMessage()
+		messageType, data, err := wsServerBean.wsConnection.ReadMessage()
 		if err != nil {
 			log.Println("收消息发生错误", err)
 			break
 		}
 		if messageType == websocket.TextMessage {
-			//得到路由后的消息
-			//路由后处理消息
-			fmt.Println("处理消息")
-			response := &WsMsgResponseStruct{
-				Body: &ResponseStruct{
-					Name:       "CPDD",
-					MsgContent: "这是对 " + string(p) + "的回复",
-				},
-			}
-			wsServerBean.outChannelBuffer <- response
+			log.Println(string(data))
 		}
+		//收到消息 解析消息,前端发来的消息为json消息
+
+		data, err = utils.UnZip(data)
+		if err != nil {
+			log.Println("解析请求发生错误", err)
+		}
+
+		//进行解密
+		secretKey, err := wsServerBean.GetProperty("secretKey")
+		if err == nil {
+			//转为字符串
+			key := secretKey.(string)
+
+			decrypt, err := utils.AesCBCDecrypt(data, []byte(key), []byte(key), openssl.ZEROS_PADDING)
+			if err != nil {
+				//出错后 进行握手
+				//wsServerBean.Handshake()
+
+			} else {
+				//获取解密数据
+				data = decrypt
+			}
+
+		}
+
+		body := &RequestStruct{}
+		err = json.Unmarshal(data, body)
+		if err != nil {
+			log.Fatalf("解析json请求发生错误,客户端请检查格式", err)
+		}
+
+		//1.将玩家发来的消息进行解密 转json并封装为request
+		request := &WsMsgRequestStruct{
+			Connection: wsServerBean,
+			Body:       body,
+		}
+		response := &WsMsgResponseStruct{
+			Body: &ResponseStruct{
+				Name: body.Name,
+				Seq:  body.Seq,
+			},
+		}
+		//进行解析
+		wsServerBean.router.Run(request, response)
+		//将请求送入缓冲区
+		wsServerBean.outChannelBuffer <- response
+
+		//将request派发给对应的业务线
+		//if messageType == websocket.TextMessage {
+		//	//得到路由后的消息
+		//	//路由后处理消息
+		//	fmt.Println("处理消息")
+		//	response := &WsMsgResponseStruct{
+		//		Body: &ResponseStruct{
+		//			Name:       "CPDD",
+		//			MsgContent: "这是对 " + string(p) + "的回复",
+		//		},
+		//	}
+		//	wsServerBean.outChannelBuffer <- response
+		//}
 
 	}
 
