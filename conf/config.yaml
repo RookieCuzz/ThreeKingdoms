@@ -1,3 +1,12 @@
 loginServer:
-  host: "127.1.0.1"
+  host: "127.0.0.1"
   port: 11455
+
+mysql:
+  dsn: "root:loveyou@tcp(8.138.106.163:3306)/electric_dispatch?parseTime=true"
+  #最大连接数
+  maxOpenConns: 50
+  #最空闲连接数
+  maxIdleConns: 25
+  #连接最大存活时间 单位分钟
+  connMaxLifetime: 30

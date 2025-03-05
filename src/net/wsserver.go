@@ -1,8 +1,10 @@
 package net
 
 import (
+	"ThreeKingdoms/src/services/proto"
 	"ThreeKingdoms/src/utils"
 	"encoding/json"
+	"fmt"
 	"github.com/forgoer/openssl"
 	"github.com/gorilla/websocket"
 	"log"
@@ -14,8 +16,8 @@ import (
 //所以go函数的参数如果是想要使用传入结构体的数据 应该传入指针
 //如果只是想要使用这个结构体实现的某些方法可以不传(因为方法是没有状态的)
 
-//其实可以理解为对 用户-服务器的连接的进一步封装
-type wsServerStruct struct {
+// 其实可以理解为对 用户-服务器的连接的进一步封装
+type wsServerChannelStruct struct {
 	wsConnection *websocket.Conn
 	//消息的路由
 	router *RouterStruct
@@ -28,7 +30,38 @@ type wsServerStruct struct {
 	propertyLock sync.RWMutex
 }
 
-func (wsServerBean wsServerStruct) SetProperty(key string, value interface{}) {
+// 客户端与服务端建立的websocket通道需要先进行握手
+func (wsServerChannelBean *wsServerChannelStruct) Handshake() {
+	//尝试握手
+
+	secrectKey, err := wsServerChannelBean.GetProperty("secretKey")
+	if err == nil && secrectKey != nil {
+		secrectKey = secrectKey.(string)
+	} else {
+		//初始化秘钥
+		secrectKey = utils.RandSeq(16)
+		wsServerChannelBean.SetProperty("secretKey", secrectKey)
+	}
+	secrectKey2, err := wsServerChannelBean.GetProperty("secretKey")
+	fmt.Printf("秘钥是:%s", secrectKey2)
+	handSocketPack := &proto.LoginHandshakeServerPacketStruct{
+		Key: secrectKey.(string),
+	}
+	body := &ResponseStruct{
+		Name:       "handshake",
+		MsgContent: handSocketPack,
+	}
+	//json化
+	jsonBody, _ := json.Marshal(body)
+	//压缩
+	zipContent, err := utils.Zip(jsonBody)
+	if err != nil {
+		log.Fatal(err)
+	}
+	wsServerChannelBean.wsConnection.WriteMessage(websocket.BinaryMessage, zipContent)
+}
+
+func (wsServerBean wsServerChannelStruct) SetProperty(key string, value interface{}) {
 	//添加属性
 	//上隔离写 同时不共享读
 	wsServerBean.propertyLock.Lock()
@@ -40,7 +73,7 @@ func (wsServerBean wsServerStruct) SetProperty(key string, value interface{}) {
 
 }
 
-func (wsServerBean wsServerStruct) GetProperty(key string) (interface{}, error) {
+func (wsServerBean wsServerChannelStruct) GetProperty(key string) (interface{}, error) {
 	//获取属性 上读锁 共享读
 	wsServerBean.propertyLock.RLock()
 	defer wsServerBean.propertyLock.RUnlock()
@@ -49,7 +82,7 @@ func (wsServerBean wsServerStruct) GetProperty(key string) (interface{}, error) 
 
 }
 
-func (wsServerBean wsServerStruct) RemoveProperty(key string) {
+func (wsServerBean wsServerChannelStruct) RemoveProperty(key string) {
 	//删除数据
 	wsServerBean.propertyLock.Lock()
 	defer wsServerBean.propertyLock.Unlock()
@@ -59,12 +92,12 @@ func (wsServerBean wsServerStruct) RemoveProperty(key string) {
 
 }
 
-func (wsServerBean wsServerStruct) Addr() string {
+func (wsServerBean wsServerChannelStruct) Addr() string {
 	//客户端的ip:端口(temp)
 	return wsServerBean.wsConnection.RemoteAddr().String()
 }
 
-func (wsServerBean wsServerStruct) Push(name string, data interface{}) {
+func (wsServerBean wsServerChannelStruct) Push(name string, data interface{}) {
 
 	rsp := &WsMsgResponseStruct{
 		Body: &ResponseStruct{
@@ -78,13 +111,13 @@ func (wsServerBean wsServerStruct) Push(name string, data interface{}) {
 	wsServerBean.outChannelBuffer <- rsp
 }
 
-func (wsServerStruct *wsServerStruct) Router(router *RouterStruct) {
+func (wsServerStruct *wsServerChannelStruct) Router(router *RouterStruct) {
 	wsServerStruct.router = router
 }
 
-func NewWsServer(connetion *websocket.Conn) *wsServerStruct {
+func NewWsServer(connetion *websocket.Conn) *wsServerChannelStruct {
 
-	return &wsServerStruct{
+	return &wsServerChannelStruct{
 		wsConnection:     connetion,
 		outChannelBuffer: make(chan *WsMsgResponseStruct, 1000),
 		properties:       make(map[string]interface{}),
@@ -92,28 +125,89 @@ func NewWsServer(connetion *websocket.Conn) *wsServerStruct {
 	}
 }
 
-func (wsServerBean wsServerStruct) Start() {
+func (wsServerBean wsServerChannelStruct) Start() {
 
 	//启动读写循环协程
 	go flushMsgLoop(&wsServerBean)
 	go readMsgLoop(&wsServerBean)
 }
-func (wsServerBean wsServerStruct) Stop() {}
+func (wsServerBean wsServerChannelStruct) Stop() {}
 
-//将服务端中的缓冲区消息通过socket发送到客户端
-func flushMsgLoop(wsServerBean *wsServerStruct) {
+// 将服务端中的缓冲区消息通过socket发送到客户端
+func flushMsgLoop(wsServerBean *wsServerChannelStruct) {
 	for {
 		select {
 		//尝试 操作1 若成功则执行case下语句并跳出
 		//这里是尝试从通道读取数据
+
+		//写之前应该加密压缩
 		case msg := <-wsServerBean.outChannelBuffer:
-			wsServerBean.wsConnection.WriteJSON(msg)
+
+			//将msg json化
+			data, err2 := json.Marshal(msg.Body)
+			if err2 != nil {
+				log.Println(err2)
+			}
+
+			//加压 加密
+			data = processServerMessage(data, wsServerBean)
+			wsServerBean.wsConnection.WriteMessage(websocket.BinaryMessage, data)
 		}
 	}
 }
 
-//写入消息
-func readMsgLoop(wsServerBean *wsServerStruct) {
+func processServerMessage(data []byte, wsServerBean *wsServerChannelStruct) []byte {
+
+	//加密
+	//1获取秘钥
+	secretKey, err := wsServerBean.GetProperty("secretKey")
+	if err != nil && secretKey == nil {
+		log.Fatal(err)
+	}
+	key := secretKey.(string)
+	encrypt, err := utils.AesCBCEncrypt(data, []byte(key), []byte(key), openssl.ZEROS_PADDING)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//2压缩
+	zip, err2 := utils.Zip(encrypt)
+	if err2 != nil {
+		log.Println(err2)
+	}
+	return zip
+}
+
+func processClientMessage(data []byte, wsServerBean *wsServerChannelStruct) []byte {
+	var out_data []byte
+	//收到消息 解析消息,前端发来的消息为json消息
+	unzipData, err2 := utils.UnZip(data)
+	if err2 != nil {
+		log.Println("解析请求发生错误", err2)
+	}
+	//进行解密
+	secretKey, err := wsServerBean.GetProperty("secretKey")
+	if err == nil {
+		//转为字符串
+		key := secretKey.(string)
+
+		decrypt, err := utils.AesCBCDecrypt(unzipData, []byte(key), []byte(key), openssl.ZEROS_PADDING)
+		if err != nil {
+			//说明 客户端和服务端秘钥不一致
+			//服务端再次和客户端进行握手
+			wsServerBean.Handshake()
+
+		} else {
+			//获取解密数据
+			out_data = decrypt
+		}
+	}
+
+	return out_data
+
+}
+
+// 写入消息
+func readMsgLoop(wsServerBean *wsServerChannelStruct) {
 
 	//异常则关闭连接
 	defer func() {
@@ -122,6 +216,8 @@ func readMsgLoop(wsServerBean *wsServerStruct) {
 	}()
 	for {
 		messageType, data, err := wsServerBean.wsConnection.ReadMessage()
+		//判断是否握手
+
 		if err != nil {
 			log.Println("收消息发生错误", err)
 			break
@@ -129,37 +225,16 @@ func readMsgLoop(wsServerBean *wsServerStruct) {
 		if messageType == websocket.TextMessage {
 			log.Println(string(data))
 		}
-		//收到消息 解析消息,前端发来的消息为json消息
 
-		data, err = utils.UnZip(data)
-		if err != nil {
-			log.Println("解析请求发生错误", err)
-		}
-
-		//进行解密
-		secretKey, err := wsServerBean.GetProperty("secretKey")
-		if err == nil {
-			//转为字符串
-			key := secretKey.(string)
-
-			decrypt, err := utils.AesCBCDecrypt(data, []byte(key), []byte(key), openssl.ZEROS_PADDING)
-			if err != nil {
-				//出错后 进行握手
-				//wsServerBean.Handshake()
-
-			} else {
-				//获取解密数据
-				data = decrypt
-			}
-
-		}
+		//unzip and crypt
+		data = processClientMessage(data, wsServerBean)
 
 		body := &RequestStruct{}
 		err = json.Unmarshal(data, body)
+		fmt.Println(body.Name)
 		if err != nil {
 			log.Fatalf("解析json请求发生错误,客户端请检查格式", err)
 		}
-
 		//1.将玩家发来的消息进行解密 转json并封装为request
 		request := &WsMsgRequestStruct{
 			Connection: wsServerBean,
@@ -169,10 +244,12 @@ func readMsgLoop(wsServerBean *wsServerStruct) {
 			Body: &ResponseStruct{
 				Name: body.Name,
 				Seq:  body.Seq,
+				Code: 0,
 			},
 		}
 		//进行解析
 		wsServerBean.router.Run(request, response)
+		fmt.Printf("发送@@@", response.Body)
 		//将请求送入缓冲区
 		wsServerBean.outChannelBuffer <- response
 
@@ -193,6 +270,6 @@ func readMsgLoop(wsServerBean *wsServerStruct) {
 	}
 
 }
-func (wsServerBean *wsServerStruct) Close() {
+func (wsServerBean *wsServerChannelStruct) Close() {
 	wsServerBean.wsConnection.Close()
 }

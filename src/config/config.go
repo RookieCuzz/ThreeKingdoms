@@ -6,13 +6,21 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const configFileUrl = "conf/config.yaml" // 相对路径
 
 // 导出的结构体，首字母大写
 type ConfigStruct struct {
-	LoginServer loginServerStruct `yaml:"loginServer"`
+	LoginServer  loginServerStruct  `yaml:"loginServer"`
+	MySqlSection mysqlSectionStruct `yaml:"mysql"`
+}
+type mysqlSectionStruct struct {
+	Dsn             string        `yaml:"dsn"`
+	MaxIdleConns    int           `yaml:"maxIdleConns"`
+	MaxOpenConns    int           `yaml:"maxOpenConns"`
+	MaxConnLifetime time.Duration `yaml:"maxConnLifetime"`
 }
 
 type loginServerStruct struct {

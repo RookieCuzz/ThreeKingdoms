@@ -2,6 +2,7 @@ package main
 
 import (
 	"ThreeKingdoms/src/config"
+	"ThreeKingdoms/src/gamedatabase"
 	"ThreeKingdoms/src/net"
 	"ThreeKingdoms/src/services"
 	"ThreeKingdoms/src/services/controllers"
@@ -11,7 +12,10 @@ import (
 
 func main() {
 	var wg sync.WaitGroup
+	//配置初始化
 	config.Init()
+	//数据库初始化
+	gamedatabase.TestDatabase()
 	port := config.Config.LoginServer.Port
 	host := config.Config.LoginServer.Host
 	wg.Add(1)
@@ -27,4 +31,5 @@ func main() {
 	server.Router = router
 	//启动登录服务器
 	server.Start()
+
 }

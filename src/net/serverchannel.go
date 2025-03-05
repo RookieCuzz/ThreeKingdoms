@@ -28,7 +28,7 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("who is coming？")
 
 	//升级
-	wsConnection, err := wsUpgrader.Upgrade(w, r, nil)
+	wsConnection, err := wsUpgrade.Upgrade(w, r, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -38,6 +38,8 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 	wsServer.Router(server.Router)
 	//开启循环
 	wsServer.Start()
+	wsServer.Handshake()
+	fmt.Printf("握手没?")
 	// 确保在函数结束时关闭连接
 	defer func() {
 		err := wsConnection.Close()
@@ -46,24 +48,7 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	for {
-
 	}
-	//defer wsConnection.Close()
-	//err = wsConnection.WriteMessage(websocket.TextMessage, []byte("你好 golang！"))
-	//if err != nil {
-	//	return
-	//}
-	//for {
-	//	messageType, p, err := wsConnection.ReadMessage()
-	//	if err != nil {
-	//		fmt.Println(err)
-	//	}
-	//	if messageType == websocket.TextMessage {
-	//
-	//		fmt.Println("接受到的消息为:" + string(p))
-	//		wsConnection.WriteMessage(websocket.TextMessage, []byte("echo "+string(p)))
-	//	}
-	//}
 
 }
 
@@ -75,7 +60,7 @@ func NewServer(addr string) *ServerStruct {
 }
 
 //使用开源的websocket协议升级器
-var wsUpgrader = websocket.Upgrader{
+var wsUpgrade = websocket.Upgrader{
 	//对浏览器发来的请求 允许其跨域行为
 	CheckOrigin: func(r *http.Request) bool {
 		return true
