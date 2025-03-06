@@ -4,8 +4,9 @@ import (
 	"ThreeKingdoms/src/constant"
 	"ThreeKingdoms/src/gamedatabase"
 	"ThreeKingdoms/src/net"
-	"ThreeKingdoms/src/services/model"
-	"ThreeKingdoms/src/services/proto"
+	model2 "ThreeKingdoms/src/services/login/model"
+	"ThreeKingdoms/src/services/login/proto"
+	"ThreeKingdoms/src/services/models"
 	"ThreeKingdoms/src/utils"
 	"encoding/json"
 	"fmt"
@@ -49,7 +50,7 @@ func (account *Account) Login(request *net.WsMsgRequestStruct, response *net.WsM
 
 	fmt.Println("解析成功:", loginData)
 
-	user := model.User{}
+	user := models.User{}
 	fmt.Println(gamedatabase.Engine.Tables)
 	ok, err := gamedatabase.Engine.Table(&user).Where("username = ?", loginData.Username).Get(&user)
 	if err != nil {
@@ -82,13 +83,13 @@ func (account *Account) Login(request *net.WsMsgRequestStruct, response *net.WsM
 	response.Body.MsgContent = packetStruct
 
 	//保存用户这次登录的细节
-	userLoginHistory := &model.LoginHistory{
+	userLoginHistory := &model2.LoginHistory{
 		UId: user.UId, CTime: time.Now(), Ip: loginData.Ip,
-		Hardware: loginData.Hardware, State: model.Login,
+		Hardware: loginData.Hardware, State: model2.Login,
 	}
 	gamedatabase.Engine.Table(userLoginHistory).Insert(userLoginHistory)
 	//刷新用户最后一次登录的信息
-	userLoginLast := &model.LoginLast{}
+	userLoginLast := &model2.LoginLast{}
 	ok, _ = gamedatabase.Engine.Table(&userLoginLast).Where("uid=?", user.UId).Get(userLoginHistory)
 
 	if !ok {

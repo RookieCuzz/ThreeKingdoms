@@ -10,3 +10,7 @@ mysql:
   maxIdleConns: 25
   #连接最大存活时间 单位分钟
   connMaxLifetime: 30
+
+webServer:
+  host: "127.0.0.1"
+  port: 8088

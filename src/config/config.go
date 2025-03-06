@@ -15,6 +15,12 @@ const configFileUrl = "conf/config.yaml" // 相对路径
 type ConfigStruct struct {
 	LoginServer  loginServerStruct  `yaml:"loginServer"`
 	MySqlSection mysqlSectionStruct `yaml:"mysql"`
+	WebServer    webServerStruct    `yaml:"webServer"`
+}
+
+type webServerStruct struct {
+	Port int    `yaml:"port"`
+	Host string `yaml:"host"`
 }
 type mysqlSectionStruct struct {
 	Dsn             string        `yaml:"dsn"`

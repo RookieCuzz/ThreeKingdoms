@@ -4,8 +4,8 @@ import (
 	"ThreeKingdoms/src/config"
 	"ThreeKingdoms/src/gamedatabase"
 	"ThreeKingdoms/src/net"
-	"ThreeKingdoms/src/services"
-	"ThreeKingdoms/src/services/controllers"
+	"ThreeKingdoms/src/services/login"
+	"ThreeKingdoms/src/services/login/controllers"
 	"strconv"
 	"sync"
 )
@@ -21,7 +21,7 @@ func main() {
 	wg.Add(1)
 
 	//构建服务器的路由树
-	router := services.GetRouter()
+	router := login.GetRouter()
 	//将账号登录添加进路由
 	controllers.DefaultAccount.SetupRouter(router)
 

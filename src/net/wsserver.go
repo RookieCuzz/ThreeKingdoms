@@ -1,7 +1,7 @@
 package net
 
 import (
-	"ThreeKingdoms/src/services/proto"
+	"ThreeKingdoms/src/services/login/proto"
 	"ThreeKingdoms/src/utils"
 	"encoding/json"
 	"fmt"
