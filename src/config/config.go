@@ -16,6 +16,13 @@ type ConfigStruct struct {
 	LoginServer  loginServerStruct  `yaml:"loginServer"`
 	MySqlSection mysqlSectionStruct `yaml:"mysql"`
 	WebServer    webServerStruct    `yaml:"webServer"`
+	GateServer   gateServerStruct   `yaml:"gateServer"`
+}
+type gateServerStruct struct {
+	Port       int    `yaml:"port"`
+	Host       string `yaml:"host"`
+	LoginProxy string `yaml:"loginProxy"`
+	GameProxy  string `yaml:"gameProxy"`
 }
 
 type webServerStruct struct {
@@ -74,9 +81,6 @@ func Init() {
 		log.Fatal("解码错误:", err)
 		return
 	}
-	// 输出配置项
-	log.Printf("Server Port: %d\n", Config.LoginServer.Port)
-	log.Printf("Server Host: %s\n", Config.LoginServer.Host)
 }
 
 func fileExists(filename string) bool {

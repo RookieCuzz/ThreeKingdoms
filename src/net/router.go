@@ -1,6 +1,7 @@
 package net
 
 import (
+	"log"
 	"strings"
 )
 
@@ -30,6 +31,11 @@ func (router *RouterStruct) Run(request *WsMsgRequestStruct, response *WsMsgResp
 				if ok {
 					handler(request, response)
 				}
+			} else if group.prefix == "*" {
+				handler, ok := group.handlerMap["*"]
+				if ok {
+					handler(request, response)
+				}
 			}
 		}
 		/////组路由
@@ -44,13 +50,22 @@ func (router *RouterStruct) Run(request *WsMsgRequestStruct, response *WsMsgResp
 	}
 }
 
-//规定一种函数类型
+// 规定一种函数类型
 type HandlerFunc func(request *WsMsgRequestStruct, response *WsMsgResponseStruct)
 
 func (group *GroupStruct) exec(name string, request *WsMsgRequestStruct, response *WsMsgResponseStruct) {
 	handlerFunc := group.handlerMap[name]
 	if handlerFunc != nil {
 		handlerFunc(request, response)
+	} else {
+		handlerFunc = group.handlerMap["*"]
+
+		if handlerFunc != nil {
+			handlerFunc(request, response)
+		} else {
+			log.Println(" * 路由未定义")
+		}
+
 	}
 }
 

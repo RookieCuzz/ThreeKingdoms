@@ -14,3 +14,9 @@ mysql:
 webServer:
   host: "127.0.0.1"
   port: 8088
+
+gateServer:
+  loginProxy: "ws://127.0.0.1:8003"
+  gameProxy: "ws://127.0.0.1:8001"
+  host: "127.0.0.1"
+  port: 8083
