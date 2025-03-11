@@ -7,8 +7,9 @@ import (
 )
 
 type ServerStruct struct {
-	addr   string
-	Router *RouterStruct
+	addr       string
+	Router     *RouterStruct
+	needSecret bool
 }
 
 func (server *ServerStruct) Start() {
@@ -24,6 +25,10 @@ func (server *ServerStruct) Start() {
 	}
 
 }
+func (s *ServerStruct) SetNeedSecret(needSecret bool) {
+	s.needSecret = needSecret
+}
+
 func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("who is coming？")
 
@@ -31,15 +36,15 @@ func (server *ServerStruct) wsHandler(w http.ResponseWriter, r *http.Request) {
 	wsConnection, err := wsUpgrade.Upgrade(w, r, nil)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
-
+	fmt.Println("协议升级成功")
 	//构建链接通道
-	wsServer := NewWsServer(wsConnection)
+	wsServer := NewWsServerChannel(wsConnection)
 	wsServer.Router(server.Router)
 	//开启循环
 	wsServer.Start()
 	wsServer.Handshake()
-	fmt.Printf("握手没?")
 	// 确保在函数结束时关闭连接
 	defer func() {
 		err := wsConnection.Close()
@@ -59,7 +64,7 @@ func NewServer(addr string) *ServerStruct {
 	}
 }
 
-//使用开源的websocket协议升级器
+// 使用开源的websocket协议升级器
 var wsUpgrade = websocket.Upgrader{
 	//对浏览器发来的请求 允许其跨域行为
 	CheckOrigin: func(r *http.Request) bool {

@@ -32,11 +32,16 @@ type WsMsgResponseStruct struct {
 	Body *ResponseStruct `json:"body"`
 }
 
-//request请求会有参数,往请求里面放参数
+// request请求会有参数,往请求里面放参数
 type WsConnection interface {
 	SetProperty(key string, value interface{})
 	GetProperty(key string) (interface{}, error)
 	RemoveProperty(key string)
 	Addr() string
 	Push(name string, data interface{})
+}
+
+type Heartbeat struct {
+	CTime int64 `json:"ctime"`
+	STime int64 `json:"stime"`
 }

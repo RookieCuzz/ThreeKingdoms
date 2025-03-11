@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"github.com/forgoer/openssl"
 	"github.com/gorilla/websocket"
+	"github.com/mitchellh/mapstructure"
 	"log"
 	"sync"
+	"time"
 )
 
 //go的结构体可以理解为在堆空间(或者栈空间)的的数据(是有状态的,不同时刻内容可能是不一样的)
@@ -59,6 +61,7 @@ func (wsServerChannelBean *wsServerChannelStruct) Handshake() {
 		log.Fatal(err)
 	}
 	wsServerChannelBean.wsConnection.WriteMessage(websocket.BinaryMessage, zipContent)
+	fmt.Println("发送握手包")
 }
 
 func (wsServerBean wsServerChannelStruct) SetProperty(key string, value interface{}) {
@@ -115,14 +118,20 @@ func (wsServerStruct *wsServerChannelStruct) Router(router *RouterStruct) {
 	wsServerStruct.router = router
 }
 
-func NewWsServer(connetion *websocket.Conn) *wsServerChannelStruct {
+var cid int64
 
-	return &wsServerChannelStruct{
+func NewWsServerChannel(connetion *websocket.Conn) *wsServerChannelStruct {
+
+	s := &wsServerChannelStruct{
 		wsConnection:     connetion,
 		outChannelBuffer: make(chan *WsMsgResponseStruct, 1000),
 		properties:       make(map[string]interface{}),
 		Seq:              0,
 	}
+	cid++
+	s.SetProperty("cid", cid)
+	return s
+
 }
 
 func (wsServerBean wsServerChannelStruct) Start() {
@@ -142,7 +151,7 @@ func flushMsgLoop(wsServerBean *wsServerChannelStruct) {
 
 		//写之前应该加密压缩
 		case msg := <-wsServerBean.outChannelBuffer:
-
+			fmt.Println("发送" + msg.Body.Name)
 			//将msg json化
 			data, err2 := json.Marshal(msg.Body)
 			if err2 != nil {
@@ -231,7 +240,8 @@ func readMsgLoop(wsServerBean *wsServerChannelStruct) {
 
 		body := &RequestStruct{}
 		err = json.Unmarshal(data, body)
-		fmt.Println(body.Name)
+		fmt.Println("数据包名为" + body.Name)
+
 		if err != nil {
 			log.Fatalf("解析json请求发生错误,客户端请检查格式", err)
 		}
@@ -247,25 +257,18 @@ func readMsgLoop(wsServerBean *wsServerChannelStruct) {
 				Code: 0,
 			},
 		}
-		//进行解析
-		wsServerBean.router.Run(request, response)
-		fmt.Printf("发送@@@", response.Body)
-		//将请求送入缓冲区
-		wsServerBean.outChannelBuffer <- response
+		if body.Name == "heartbeat" {
+			heartBeatPacket := &Heartbeat{}
+			mapstructure.Decode(body, &heartBeatPacket)
+			heartBeatPacket.STime = time.Now().UnixMilli()
+			response.Body.MsgContent = heartBeatPacket
+		}
+		if wsServerBean.router != nil {
+			//进行路由解析
+			wsServerBean.router.Run(request, response)
+		}
 
-		//将request派发给对应的业务线
-		//if messageType == websocket.TextMessage {
-		//	//得到路由后的消息
-		//	//路由后处理消息
-		//	fmt.Println("处理消息")
-		//	response := &WsMsgResponseStruct{
-		//		Body: &ResponseStruct{
-		//			Name:       "CPDD",
-		//			MsgContent: "这是对 " + string(p) + "的回复",
-		//		},
-		//	}
-		//	wsServerBean.outChannelBuffer <- response
-		//}
+		wsServerBean.outChannelBuffer <- response
 
 	}
 

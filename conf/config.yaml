@@ -1,6 +1,6 @@
 loginServer:
   host: "127.0.0.1"
-  port: 11455
+  port: 8003
 
 mysql:
   dsn: "root:loveyou@tcp(8.138.106.163:3306)/electric_dispatch?parseTime=true"
