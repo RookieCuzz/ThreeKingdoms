@@ -17,6 +17,7 @@ type ConfigStruct struct {
 	MySqlSection mysqlSectionStruct `yaml:"mysql"`
 	WebServer    webServerStruct    `yaml:"webServer"`
 	GateServer   gateServerStruct   `yaml:"gateServer"`
+	GameServer   gameServerStruct   `yaml:"gameServer"`
 }
 type gateServerStruct struct {
 	Port       int    `yaml:"port"`
@@ -26,6 +27,10 @@ type gateServerStruct struct {
 }
 
 type webServerStruct struct {
+	Port int    `yaml:"port"`
+	Host string `yaml:"host"`
+}
+type gameServerStruct struct {
 	Port int    `yaml:"port"`
 	Host string `yaml:"host"`
 }

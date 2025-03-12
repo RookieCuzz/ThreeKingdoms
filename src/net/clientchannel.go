@@ -274,7 +274,9 @@ func (channel *WsClientChannelStruct) Send(name string, content interface{}) *Re
 	fmt.Println("@@@", err)
 	if err != nil {
 		sc.cancel()
-		fmt.Println("转发出错", err)
+
+		//mapClient[cid.(int)]
+		fmt.Println("转发出错,移除通道", err)
 	} else {
 		response := sc.wait()
 		fmt.Println(response)

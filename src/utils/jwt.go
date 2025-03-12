@@ -2,14 +2,13 @@ package utils
 
 import (
 	gojwt "github.com/dgrijalva/jwt-go"
-	"os"
 	"time"
 )
 
-var jwtKey []byte
+var jwtKey = []byte("fuckyou")
 
 func init() {
-	jwtKey = []byte(os.Getenv("JWT_SECRET"))
+	jwtKey = []byte("fuckyou")
 }
 
 type Claims struct {

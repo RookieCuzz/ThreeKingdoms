@@ -31,6 +31,8 @@ func (handlerBean *HandlerStruct) All(request *net.WsMsgRequestStruct, response 
 	proxyStr := ""
 	if isAccount(name) {
 		proxyStr = handlerBean.LoginProxy
+	} else {
+		proxyStr = handlerBean.GameProxy
 	}
 	if proxyStr == "" {
 		response.Body.Code = constant.ProxyNotInConnect
@@ -79,10 +81,15 @@ func (handlerBean *HandlerStruct) All(request *net.WsMsgRequestStruct, response 
 	}
 	fmt.Println("消息转发ing")
 	proxyRseponse, err := proxyClient.Send(request.Body.Name, request.Body.MsgContent)
-	fmt.Println("响应结果", proxyRseponse)
+
 	if err != nil {
-		log.Println("消息发送出错")
+		mapClient := Gateway.ProxyMap[name]
+		proxyClient.Channel.Close()
+		delete(mapClient, cid)
+		log.Println("消息发送出错,删除通道")
+		return
 	} else {
+		fmt.Println("响应结果", proxyRseponse)
 		fmt.Println("消息转发成功")
 	}
 	if response != nil {
